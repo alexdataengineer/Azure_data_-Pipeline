@@ -1,5 +1,5 @@
 {
-	"name": "Raw_Data",
+	"name": "bronze_data",
 	"properties": {
 		"activities": [
 			{
@@ -54,6 +54,9 @@
 				]
 			}
 		],
+		"folder": {
+			"name": "bronze_folder"
+		},
 		"annotations": [],
 		"lastPublishTime": "2025-06-29T03:23:48Z"
 	},

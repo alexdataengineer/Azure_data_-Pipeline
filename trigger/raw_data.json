@@ -6,7 +6,7 @@
 		"pipelines": [
 			{
 				"pipelineReference": {
-					"referenceName": "Raw_Data",
+					"referenceName": "bronze_data",
 					"type": "PipelineReference"
 				}
 			}

@@ -7,6 +7,7 @@
 I developed this Azure Data Pipeline to extract, transform, and load population data from the World Bank API into a structured data lake architecture. This project demonstrates a complete end-to-end data engineering solution using Azure Synapse Analytics, implementing the modern data architecture pattern with Bronze, Silver, and Gold layers.
 
 The pipeline specifically focuses on Brazil's population data (indicator SP.POP.TOTL) and transforms it into decade-based aggregations that provide valuable insights for demographic analysis and business intelligence.
+![image](https://github.com/user-attachments/assets/175ea80e-fa52-40be-9d56-8c0ecc2417f0)
 
 ## What This Pipeline Does
 

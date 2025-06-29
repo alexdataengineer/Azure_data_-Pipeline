@@ -358,16 +358,8 @@
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
 				"annotations": [],
-				"runtimeState": "Started",
-				"pipelines": [
-					{
-						"pipelineReference": {
-							"referenceName": "bronze_data",
-							"type": "PipelineReference"
-						},
-						"parameters": {}
-					}
-				],
+				"runtimeState": "Stopped",
+				"pipelines": [],
 				"type": "ScheduleTrigger",
 				"typeProperties": {
 					"recurrence": {
@@ -378,9 +370,7 @@
 					}
 				}
 			},
-			"dependsOn": [
-				"[concat(variables('workspaceId'), '/pipelines/bronze_data')]"
-			]
+			"dependsOn": []
 		},
 		{
 			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
@@ -408,75 +398,6 @@
 			"properties": {
 				"type": "ManagedIdentity",
 				"typeProperties": {}
-			},
-			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('workspaceName'), '/explore_calendar')]",
-			"type": "Microsoft.Synapse/workspaces/sqlscripts",
-			"apiVersion": "2019-06-01-preview",
-			"properties": {
-				"folder": {
-					"name": "set up cost synapse/NY"
-				},
-				"content": {
-					"query": "USE nyc_taxi_discovery\n\nEXEC sp_describe_first_result_set N'SELECT * \nFROM \nOPENROWSET (\n    BULK ''nyc_taxi/calendar.csv'',\n    DATA_SOURCE = ''lakeiqbetim_bronze'',\n    FORMAT = ''CSV'',\n    PARSER_VERSION = ''2.0'',\n    HEADER_ROW = TRUE\n\n) AS calendar'\n\n \n\n",
-					"metadata": {
-						"language": "sql"
-					},
-					"currentConnection": {
-						"databaseName": "nyc_taxi_discovery",
-						"poolName": "Built-in"
-					},
-					"resultLimit": 5000
-				},
-				"type": "SqlQuery"
-			},
-			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('workspaceName'), '/explore_taxi_organize')]",
-			"type": "Microsoft.Synapse/workspaces/sqlscripts",
-			"apiVersion": "2019-06-01-preview",
-			"properties": {
-				"folder": {
-					"name": "set up cost synapse/NY"
-				},
-				"content": {
-					"query": "SELECT TOP 100 *\nFROM OPENROWSET(\n    BULK 'https://lakeiqbetim.dfs.core.windows.net/bronze/nyc_taxi/taxi_zone.csv',\n    FORMAT = 'CSV',\n    PARSER_VERSION = '2.0',\n    HEADER_ROW = TRUE\n)\nWITH (\n    LocationID INT,\n    Borough VARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC_UTF8,\n    Zone VARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC_UTF8,\n    service_zone VARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC_UTF8\n) AS [result];\n\n\n\nEXEC sp_describe_first_result_set N'SELECT TOP 100 *\nFROM OPENROWSET(\n    BULK ''https://lakeiqbetim.dfs.core.windows.net/bronze/nyc_taxi/taxi_zone.csv'',\n    FORMAT = ''CSV'',\n    PARSER_VERSION = ''2.0'',\n    HEADER_ROW = TRUE\n)\nWITH (\n    LocationID INT,\n    Borough VARCHAR(50),\n    Zone VARCHAR(100),\n    service_zone VARCHAR(50)\n) AS [result]'\n\nSELECT name, collation_name FROM sys.databases;\n\nCREATE DATABASE nyc_taxi_discovery;\n\nUSE nyc_taxi_discovery\n\nCREATE EXTERNAL DATA SOURCE lakeiqbetim\nWITH(\n    LOCATION = 'https://lakeiqbetim.dfs.core.windows.net/'\n)\n\n\nCREATE EXTERNAL DATA SOURCE lakeiqbetim_raw\nWITH(\n    LOCATION = 'https://lakeiqbetim.dfs.core.windows.net/raw_2'\n)\n\n\nCREATE EXTERNAL DATA SOURCE lakeiqbetim_bronze\nWITH (\n    LOCATION = 'https://lakeiqbetim.dfs.core.windows.net/bronze'\n);\n\n\n\n\n\n\n\n\n\n\n\n\nSELECT TOP 100 *\nFROM OPENROWSET(\n    BULK 'nyc_taxi/taxi_zone.csv',\n    DATA_SOURCE = 'lakeiqbetim_bronze',\n    FORMAT = 'CSV',\n    PARSER_VERSION = '2.0',\n    HEADER_ROW = TRUE\n)\nWITH (\n    LocationID INT,\n    Borough VARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC_UTF8,\n    Zone VARCHAR(100) COLLATE Latin1_General_100_CI_AI_SC_UTF8,\n    service_zone VARCHAR(50) COLLATE Latin1_General_100_CI_AI_SC_UTF8\n) AS [result];\n\n\nSELECT * FROM sys.external_data_sources\n",
-					"metadata": {
-						"language": "sql"
-					},
-					"currentConnection": {
-						"databaseName": "nyc_taxi_discovery",
-						"poolName": "Built-in"
-					},
-					"resultLimit": 5000
-				},
-				"type": "SqlQuery"
-			},
-			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('workspaceName'), '/set_serveless_cost_control')]",
-			"type": "Microsoft.Synapse/workspaces/sqlscripts",
-			"apiVersion": "2019-06-01-preview",
-			"properties": {
-				"folder": {
-					"name": "set up cost synapse"
-				},
-				"content": {
-					"query": "SELECT * FROM sys.dm_external_data_processed;\n\n\nSELECT * FROM sys.configurations\nWHERE name LIKE 'Data Processed %';\n\nsp_set_data_processed_limit\n@type = N'monthly',\n@limit_tb =4;\n\nsp_set_data_processed_limit\n@type = N'weekly',\n@limit_tb =3;\n\nsp_set_data_processed_limit\n@type = N'daily',\n@limit_tb =2;",
-					"metadata": {
-						"language": "sql"
-					},
-					"currentConnection": {
-						"databaseName": "master",
-						"poolName": "Built-in"
-					},
-					"resultLimit": 5000
-				},
-				"type": "SqlQuery"
 			},
 			"dependsOn": []
 		},
@@ -705,6 +626,92 @@
 			},
 			"dependsOn": [],
 			"location": "brazilsouth"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/execultion_ordem')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "first_bronze",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "bronze_data",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "silver",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "first_bronze",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "data_transformation_silver",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "gold",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "gold_layer",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "dependencies"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/bronze_data')]",
+				"[concat(variables('workspaceId'), '/pipelines/data_transformation_silver')]",
+				"[concat(variables('workspaceId'), '/pipelines/gold_layer')]"
+			]
 		}
 	]
 }

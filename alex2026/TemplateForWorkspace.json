@@ -34,7 +34,16 @@
 	},
 	"resources": [
 		{
-			"name": "[concat(parameters('workspaceName'), '/Raw_Data')]",
+			"name": "[concat(parameters('workspaceName'), '/smalsize')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/bronze_data')]",
 			"type": "Microsoft.Synapse/workspaces/pipelines",
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
@@ -96,12 +105,67 @@
 				"policy": {
 					"elapsedTimeMetric": {}
 				},
+				"folder": {
+					"name": "bronze_folder"
+				},
 				"annotations": [],
 				"lastPublishTime": "2025-06-29T03:23:48Z"
 			},
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/datasets/RestResource1')]",
 				"[concat(variables('workspaceId'), '/datasets/Json1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/data_transformation_silver')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Notebook1",
+						"type": "SynapseNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "data_transformation_silver",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": "smalsize",
+								"type": "BigDataPoolReference"
+							},
+							"executorSize": "Small",
+							"conf": {
+								"spark.dynamicAllocation.enabled": true
+							},
+							"driverSize": "Small",
+							"authentication": {
+								"type": "MSI"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "silver_folder"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/data_transformation_silver')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/smalsize')]"
 			]
 		},
 		{
@@ -246,7 +310,7 @@
 				"pipelines": [
 					{
 						"pipelineReference": {
-							"referenceName": "Raw_Data",
+							"referenceName": "bronze_data",
 							"type": "PipelineReference"
 						},
 						"parameters": {}
@@ -263,7 +327,7 @@
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/pipelines/Raw_Data')]"
+				"[concat(variables('workspaceId'), '/pipelines/bronze_data')]"
 			]
 		},
 		{
@@ -361,6 +425,129 @@
 					"resultLimit": 5000
 				},
 				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/data_transformation_silver')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "smalsize",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "2",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "0064ba0d-d93b-4278-a991-dfd44f7e6e5d"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/c13fe431-45c7-45ed-aafb-780b48928c18/resourceGroups/new_recurse_service/providers/Microsoft.Synapse/workspaces/alex2026/bigDataPools/smalsize",
+						"name": "smalsize",
+						"type": "Spark",
+						"endpoint": "https://alex2026.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/smalsize",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "3.4",
+						"nodeCount": 10,
+						"cores": 4,
+						"memory": 28,
+						"automaticScaleJobs": false
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"metadata": {},
+						"source": [
+							"bronze_path = \"abfss://bronze@lakeiqbetim.dfs.core.windows.net/apidata/newfiles\"\n",
+							"df_raw = spark.read.option(\"multiline\", \"false\").json(bronze_path)\n",
+							"df_filtered = df_raw.filter(\"country IS NOT NULL\")\n",
+							"\n",
+							"df_silver = (\n",
+							"    df_filtered.selectExpr(\n",
+							"         \"country.value as pais\",\n",
+							"        \"countryiso3code as iso3\",\n",
+							"        \"CAST(date AS INT) as ano\",\n",
+							"        \"CAST(value AS BIGINT) as populacao_total\"\n",
+							"    ).filter(\"populacao_total IS NOT NULL\")\n",
+							")\n",
+							"df_silver.show(10, truncate=False)"
+						],
+						"outputs": [],
+						"execution_count": 2
+					},
+					{
+						"cell_type": "code",
+						"metadata": {},
+						"source": [
+							"df_silver.write.mode(\"overwrite\").parquet(\"abfss://silver@lakeiqbetim.dfs.core.windows.net/worldbank_populacao/\")"
+						],
+						"outputs": [],
+						"execution_count": 4
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/smalsize')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 10,
+					"minNodeCount": 3
+				},
+				"nodeCount": 10,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.4",
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "brazilsouth"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Pipeline 1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
 			},
 			"dependsOn": []
 		}

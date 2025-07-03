@@ -27,6 +27,10 @@
 		"alex2026-WorkspaceDefaultStorage_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://lakeiqbetim.dfs.core.windows.net"
+		},
+		"Ls_spacex_http_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://api.spacexdata.com/v4/"
 		}
 	},
 	"variables": {
@@ -479,6 +483,26 @@
 			"dependsOn": []
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/external_table_report_worldbank_populacao_por_decada')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE EXTERNAL DATA SOURCE ds_lakeiq_gold\nWITH (\n    LOCATION = 'abfss://gold@lakeiqbetim.dfs.core.windows.net/'\n);\n\nCREATE EXTERNAL FILE FORMAT parquet_format\nWITH (\n    FORMAT_TYPE = PARQUET\n);\n\nCREATE EXTERNAL TABLE dbo.worldbank_populacao_por_decada (\n    pais NVARCHAR(100),\n    decada INT,\n    anos_disponiveis INT,\n    media_populacional_decada BIGINT,\n    populacao_maxima_decada BIGINT,\n    populacao_minima_decada BIGINT\n)\nWITH (\n    LOCATION = 'worldbank_populacao_por_decada/',\n    DATA_SOURCE = ds_lakeiq_gold,\n    FILE_FORMAT = parquet_format\n);\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "worldbank_db",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/data_transformation_silver')]",
 			"type": "Microsoft.Synapse/workspaces/notebooks",
 			"apiVersion": "2019-06-01-preview",
@@ -705,24 +729,150 @@
 			"location": "brazilsouth"
 		},
 		{
-			"name": "[concat(parameters('workspaceName'), '/external_table_report_worldbank_populacao_por_decada')]",
-			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"name": "[concat(parameters('workspaceName'), '/Ls_spacex_http')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
-				"content": {
-					"query": "CREATE EXTERNAL DATA SOURCE ds_lakeiq_gold\nWITH (\n    LOCATION = 'abfss://gold@lakeiqbetim.dfs.core.windows.net/'\n);\n\nCREATE EXTERNAL FILE FORMAT parquet_format\nWITH (\n    FORMAT_TYPE = PARQUET\n);\n\nCREATE EXTERNAL TABLE dbo.worldbank_populacao_por_decada (\n    pais NVARCHAR(100),\n    decada INT,\n    anos_disponiveis INT,\n    media_populacional_decada BIGINT,\n    populacao_maxima_decada BIGINT,\n    populacao_minima_decada BIGINT\n)\nWITH (\n    LOCATION = 'worldbank_populacao_por_decada/',\n    DATA_SOURCE = ds_lakeiq_gold,\n    FILE_FORMAT = parquet_format\n);\n",
-					"metadata": {
-						"language": "sql"
-					},
-					"currentConnection": {
-						"databaseName": "worldbank_db",
-						"poolName": "Built-in"
-					},
-					"resultLimit": 5000
+				"annotations": [],
+				"type": "HttpServer",
+				"typeProperties": {
+					"url": "[parameters('Ls_spacex_http_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "Anonymous"
 				},
-				"type": "SqlQuery"
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
 			},
-			"dependsOn": []
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_SpaceX_Import')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Extract_Space_X",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "JsonSource",
+								"storeSettings": {
+									"type": "HttpReadSettings",
+									"requestMethod": "GET"
+								},
+								"formatSettings": {
+									"type": "JsonReadSettings"
+								}
+							},
+							"sink": {
+								"type": "JsonSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "JsonWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "spacexfile",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "sparcexfile",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "bronze_Space_x"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/spacexfile')]",
+				"[concat(variables('workspaceId'), '/datasets/sparcexfile')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/spacexfile')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_spacex_http",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation",
+						"relativeUrl": "launches/latest"
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/Ls_spacex_http')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/sparcexfile')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "bronze"
+					}
+				},
+				"schema": {
+					"type": "object",
+					"properties": {
+						"payment_type": {
+							"type": "integer"
+						},
+						"payment_type_desc": {
+							"type": "null"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
 		}
 	]
 }

@@ -19,6 +19,9 @@
 		},
 		"alex2026-WorkspaceDefaultStorage_properties_typeProperties_url": {
 			"value": "https://lakeiqbetim.dfs.core.windows.net"
+		},
+		"Ls_spacex_http_properties_typeProperties_url": {
+			"value": "https://api.spacexdata.com/v4/"
 		}
 	}
 }
